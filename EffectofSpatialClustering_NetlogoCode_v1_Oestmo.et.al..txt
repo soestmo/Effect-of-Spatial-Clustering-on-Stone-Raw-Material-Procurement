@@ -1,0 +1,261 @@
+globals [freqrichness distancefromsource nomateriallist nomaterialtime counter cluster-list material-list materialcol-list maxrichness]
+
+breed [agents agent]
+breed [materials material]
+
+agents-own [
+  v           ; List of amount of elements from materials in the tool kit
+  done        ; list to keep track which material sources the agent has encountered.
+  sumv        ; Total amount of material in tool kit
+  richness    ; measure of how many types of raw materials in tool kit
+  target
+  ]
+
+patches-own [
+  cluster
+  materialtype
+]
+
+to setup
+  ca
+  reset-ticks
+  ask patches [set cluster nobody]
+  set counter 0
+  set maxrichness (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
+  set freqrichness (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 )
+
+  set material-list    (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+  set materialcol-list (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+  let j 0
+  while [j < 5000]
+  [
+    set material-list lput 0 material-list
+    set materialcol-list lput 0 materialcol-list
+    set j j + 1
+  ]
+ ; show length freqrichness
+  set distancefromsource []
+  set nomateriallist []
+  set nomaterialtime 0
+  let ii 0
+  while [ii < 50]
+  [
+    set distancefromsource lput 0 distancefromsource
+    set ii ii + 1
+  ]
+  if distribution = "random" [
+    ask n-of materialsources patches [
+      sprout 1 [
+        set breed materials
+        set shape "dot"
+        set color white
+        set hidden? true
+      ]
+      ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14][set pcolor max [pcolor] of neighbors]
+
+    ]
+  ]
+  if distribution = "clustered" [
+    ask patch 249 249 [
+      sprout 1 [
+        set breed materials
+        ifelse nrmaterials = "20" [set materialtype 1 + random 20][set materialtype 1]
+        set shape "dot"
+        set color white
+        set hidden? true
+      ]
+      ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14][set pcolor max [pcolor] of neighbors]
+    ]
+    let i 1
+    let drawn true
+    while [i < materialsources]
+    [
+       ifelse drawn [
+         ifelse random-float 1 < prandom [
+           ask one-of patches with [count turtles-here = 0]
+           [
+             sprout 1 [
+               set breed materials
+               set shape "dot"
+               set color white
+               set hidden? true
+             ]
+              ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14 set materialtype i + 1][set pcolor max [pcolor] of neighbors set materialtype max [materialtype] of neighbors]
+             set drawn true
+              set i i + 1
+           ]
+         ][
+         ask one-of patches with [count turtles-here > 0]
+         [
+           if count neighbors4 with [count turtles-here = 0] > 0
+           [
+             set drawn false
+           ask one-of neighbors4 with [count turtles-here = 0]
+           [
+
+              sprout 1 [
+                set breed materials
+                set shape "dot"
+                set color white
+                set hidden? true
+              ]
+              set drawn true
+                ifelse nrmaterials = "20" [
+                  ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14 set materialtype 1 + random 20][set pcolor max [pcolor] of neighbors set materialtype max [materialtype] of neighbors]
+                ][
+                  ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14 set materialtype 1 + i][set pcolor max [pcolor] of neighbors set materialtype 1 + i]
+                ]
+              set i i + 1
+           ]
+         ]
+       ]
+       ]
+    ][
+        ask one-of patches with [count turtles-here > 0]
+         [
+           if count neighbors4 with [count turtles-here = 0] > 0
+           [
+           ask one-of neighbors4 with [count turtles-here = 0]
+           [
+
+              sprout 1 [
+                set breed materials
+                set shape "dot"
+                set color white
+                set hidden? true
+              ]
+               ifelse max [pcolor] of neighbors4 = 0 [set pcolor 3 + 10 * random 14][set pcolor max [pcolor] of neighbors]
+              set drawn true
+              set i i + 1
+           ]
+         ]
+       ]
+    ]
+    ]
+  ]
+  crt 1 [set breed agents set shape "person" set color red set size 10 setxy random-pxcor random-pycor
+    ;; creates a agent and places the agent in a random location on the map
+    set v []            ;; creates an empty list that keeps track of the amount of elements from materials in the tool kit
+    set done []         ;; creates an empty list that keeps track of which material sources the agent has encountered.
+    let i 0             ;; i =  raw material type label
+    set richness 0
+    while [i < materialsources]
+    [
+      set v lput 0 v
+      set done lput 0 done
+      set i i + 1
+    ]
+  ]
+  ask materials [
+    set material-list replace-item (materialtype - 1) material-list (item (materialtype - 1) material-list + 1)
+  ]
+
+end
+
+to go
+  let filltoolkit 0
+  ask agents
+  [
+    ifelse sum v < threshold [
+      discardmat
+      face min-one-of materials [distance myself]
+      fd 1
+      collectmaterial
+    ]
+    [
+      discardmat
+      moverandom
+      collectmaterial
+    ]
+    set filltoolkit sum v
+  ]
+  let ii [richness] of turtle materialsources
+  set freqrichness replace-item ii freqrichness (item ii freqrichness + 1)
+  if ii > item filltoolkit maxrichness [
+    set maxrichness replace-item filltoolkit maxrichness ii
+  ]
+  tick
+  if ticks > 35000 [
+    if nomaterialtime > 0 [ set nomateriallist lput nomaterialtime nomateriallist]  ;; creates a output list of timesteps without raw materials in toolkit.
+    stop]            ;; stops the simulation when 35000 ticks are passed
+end
+
+
+to discardmat        ;; discard one element
+    set sumv sum v
+    if sumv > 0 [
+      let prob []
+      let i 0
+      while [i < materialsources]
+      [
+        set prob lput (item i v / sumv) prob
+        set i i + 1
+      ]
+
+      let draw random-float 1
+      let discard 0
+      set i 0
+      let cumprob 0
+      while [i < materialsources]
+      [
+        ifelse cumprob < draw and (cumprob + item i prob) > draw [
+          set discard i
+          set i materialsources
+        ][
+         set cumprob cumprob + item i prob
+         set i i + 1
+        ]
+      ]
+      set v replace-item discard v (item discard v - 1)
+    ]
+end
+
+to moverandom                       ;; move randomly either by equal chance to move any direction or 0-90 degrees left or right.
+  if randomwalk = "equalchance"
+  [
+    if random-float 1 > (1 / 9) [
+      let next one-of neighbors
+      move-to next
+    ]
+  ]
+  if randomwalk = "wiggling"
+  [
+    lt random 90
+    rt random 90
+    fd 1
+  ]
+end
+
+to collectmaterial
+    let source one-of materials-here
+    if source != nobody [
+        set sumv sum v
+        let space 100 - sumv    ;; Toolkit size is 100
+        let whos 0
+        ifelse nrmaterials = "20" [
+          set whos [materialtype] of source][
+        set whos [materialtype] of source]
+        set materialcol-list replace-item (materialtype - 1) materialcol-list (item (materialtype - 1) material-list + space)
+        set v replace-item whos v ((item whos v) + space)
+        set done replace-item [who] of source done 1
+    ]
+   let i 0
+   set richness 0
+   let maxvalue 0
+   ifelse nrmaterials = 20 [set maxvalue 20][set maxvalue 5000]
+   while [i < maxvalue]
+   [
+     if item i v > 0 [set richness richness + 1
+       let ii int (distance turtle i)
+       if ii < 50 [
+         set distancefromsource replace-item ii distancefromsource (item ii distancefromsource + item i v)
+       ]
+     ]
+     set i i + 1
+   ]
+  ifelse richness = 0 [
+    set nomaterialtime nomaterialtime + 1][
+    if nomaterialtime > 0 [ set nomateriallist lput nomaterialtime nomateriallist]
+    set nomaterialtime 0
+    ]
+end
